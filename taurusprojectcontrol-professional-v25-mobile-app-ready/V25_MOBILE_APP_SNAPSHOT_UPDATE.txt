@@ -1,0 +1,24 @@
+TAURUS PROJECT CONTROL — V25 MOBILE APP UPDATE
+
+This release reproduces the approved dark mobile-app snapshot while preserving
+the existing desktop portal, Supabase integration, permissions, imports,
+calculations, schedule logic, and Vercel deployment configuration.
+
+MOBILE EXPERIENCE
+- Taurus branded sticky app header with the approved square logo
+- Executive Overview mobile title and live configured project name
+- Two-by-two Actual, Planned, SPI, and SV KPI layout
+- Compact live Overall Progress S-curve using published project data
+- Live Data Date and schedule-status card
+- Fixed Overview, Progress, Documents, and Schedule navigation
+- Consistent dark navy secondary mobile screens
+- Safe-area support for modern Android devices
+
+DEPLOYMENT
+Upload the contents of this package to the existing Taurus website GitHub
+repository. Vercel will deploy it using the same environment variables and
+Supabase configuration. Because the Android application loads the live Vercel
+website, the new mobile design will appear in the app automatically after the
+Vercel deployment completes.
+
+No Supabase migration is required for this visual update.
