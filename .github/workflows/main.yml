@@ -1,4 +1,4 @@
-name: Build Taurus Android APK
+name: Build Taurus V25 Android APK
 
 on:
   workflow_dispatch:
@@ -12,11 +12,11 @@ permissions:
 
 jobs:
   build:
-    name: Build Android APK
+    name: Build Taurus V25 APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Check out repository
         uses: actions/checkout@v4
 
       - name: Set up Java 17
@@ -31,108 +31,57 @@ jobs:
           gradle-version: "8.10.2"
 
       - name: Find or extract Android project
-        id: android-project
+        id: project
         shell: bash
         run: |
           set -euo pipefail
 
-          SETTINGS_FILE="$(find "$GITHUB_WORKSPACE" \
-            -type f \
-            \( -name "settings.gradle" -o -name "settings.gradle.kts" \) \
-            -not -path "*/build/*" \
-            -not -path "*/.gradle/*" \
-            -print -quit || true)"
+          find_project() {
+            find "$1" -type f \( -name settings.gradle -o -name settings.gradle.kts \) \
+              -not -path '*/build/*' -print -quit
+          }
+
+          SETTINGS_FILE="$(find_project "$GITHUB_WORKSPACE")"
 
           if [ -z "$SETTINGS_FILE" ]; then
-            echo "Android project is not extracted. Looking for ZIP files..."
-
-            EXTRACTION_ROOT="$GITHUB_WORKSPACE/_android_extracted"
-            mkdir -p "$EXTRACTION_ROOT"
-
-            ZIP_FOUND="false"
-            COUNTER=0
-
-            while IFS= read -r -d '' ZIP_FILE; do
-              ZIP_FOUND="true"
-              COUNTER=$((COUNTER + 1))
-
-              echo "Extracting: $ZIP_FILE"
-
-              unzip -q -o "$ZIP_FILE" \
-                -d "$EXTRACTION_ROOT/package-$COUNTER"
-            done < <(
-              find "$GITHUB_WORKSPACE" \
-                -maxdepth 4 \
-                -type f \
-                -iname "*.zip" \
-                -print0
-            )
-
-            if [ "$ZIP_FOUND" = "false" ]; then
-              echo "Error: No Android project or ZIP file was found."
-              exit 1
-            fi
-
-            SETTINGS_FILE="$(find "$EXTRACTION_ROOT" \
-              -type f \
-              \( -name "settings.gradle" -o -name "settings.gradle.kts" \) \
-              -not -path "*/build/*" \
-              -not -path "*/.gradle/*" \
-              -print -quit || true)"
+            mkdir -p "$GITHUB_WORKSPACE/_android_extracted"
+            package_number=0
+            while IFS= read -r -d '' package; do
+              package_number=$((package_number + 1))
+              destination="$GITHUB_WORKSPACE/_android_extracted/package-$package_number"
+              mkdir -p "$destination"
+              unzip -q "$package" -d "$destination"
+            done < <(find "$GITHUB_WORKSPACE" -maxdepth 4 -type f -iname '*.zip' -print0)
+            SETTINGS_FILE="$(find_project "$GITHUB_WORKSPACE/_android_extracted")"
           fi
 
           if [ -z "$SETTINGS_FILE" ]; then
-            echo "Error: settings.gradle was not found."
-            echo "The uploaded ZIP is not the Taurus Android project."
+            echo "Android settings.gradle was not found. Upload this Android project, not the website ZIP." >&2
             exit 1
           fi
 
           PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
-
-          if [ ! -f "$PROJECT_DIR/app/build.gradle" ] && \
-             [ ! -f "$PROJECT_DIR/app/build.gradle.kts" ]; then
-            echo "Error: Android app/build.gradle was not found."
-            exit 1
-          fi
-
-          echo "Android project found at: $PROJECT_DIR"
           echo "dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+          echo "Android project: $PROJECT_DIR"
 
       - name: Build debug APK
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          gradle \
-            --no-daemon \
-            -p "${{ steps.android-project.outputs.dir }}" \
-            assembleDebug
+        run: gradle --no-daemon -p "${{ steps.project.outputs.dir }}" assembleDebug
 
       - name: Prepare Taurus APK
         shell: bash
         run: |
           set -euo pipefail
-
-          APK_FILE="$(find \
-            "${{ steps.android-project.outputs.dir }}/app/build/outputs/apk/debug" \
-            -type f \
-            -name "*.apk" \
-            -print -quit)"
-
-          if [ -z "$APK_FILE" ]; then
-            echo "Error: The APK was not generated."
+          APK="$(find "${{ steps.project.outputs.dir }}" -type f -path '*/build/outputs/apk/debug/*.apk' -print -quit)"
+          if [ -z "$APK" ]; then
+            echo "The Android build completed but no debug APK was found." >&2
             exit 1
           fi
-
-          cp "$APK_FILE" "$GITHUB_WORKSPACE/Taurus-Project-Control.apk"
-
-          echo "APK successfully created:"
-          ls -lh "$GITHUB_WORKSPACE/Taurus-Project-Control.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/Taurus-Project-Control-V25.apk"
 
       - name: Upload downloadable APK
         uses: actions/upload-artifact@v4
         with:
-          name: Taurus-Project-Control-Android
-          path: Taurus-Project-Control.apk
+          name: Taurus-Project-Control-V25-Android
+          path: Taurus-Project-Control-V25.apk
           if-no-files-found: error
           retention-days: 90
